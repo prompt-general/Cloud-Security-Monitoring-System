@@ -42,6 +42,17 @@ services:
     networks:
       - cloudsec-net
 
+  ingestion-service:
+    build: ../backend/services/ingestion-service
+    container_name: cloudsec-ingestion
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKER: kafka:9092
+    networks:
+      - cloudsec-net
+    restart: unless-stopped
+
   # -------------------- PostgreSQL --------------------
   postgres:
     image: postgres:15-alpine
