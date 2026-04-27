@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-type Activity = {
+type Log = {
   timestamp: string;
-  description: string;
+  event_type: string;
+  cloud_provider: string;
+  status: string;
+  source_ip?: string;
+  resource?: string;
 };
 
 type Props = {
@@ -13,51 +17,44 @@ type Props = {
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export default function UserActivityTimeline({ userId }: Props) {
-  const [activity, setActivity] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchActivity = async () => {
+    if (!userId) return;
+    const fetchLogs = async () => {
+      setLoading(true);
       try {
         const res = await axios.get(`${API_BASE}/logs?user_id=${userId}&limit=50`);
-        const activities = res.data.map((log: any) => ({
-          timestamp: log.timestamp,
-          description: `${log.event_type} from ${log.source_ip || 'unknown'} (${log.status})`
-        }));
-        setActivity(activities);
+        setLogs(res.data);
       } catch (err) {
-        console.error('Failed to fetch activity', err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
-    if (userId) {
-      fetchActivity();
-    }
+    fetchLogs();
   }, [userId]);
 
-  if (loading) {
-    return <div className="bg-white p-6 rounded-lg shadow">Loading activity...</div>;
-  }
-
+  if (!userId) return null;
+  
   return (
-    <div className="bg-white rounded-lg shadow p-6 mt-6">
-      <h2 className="text-xl font-bold mb-4">Activity for {userId}</h2>
-      {activity.length === 0 ? (
-        <p className="text-gray-500">No activity found.</p>
-      ) : (
-        <ul className="space-y-3">
-          {activity.map((item, idx) => (
-            <li key={idx} className="border-l-2 border-blue-300 pl-4 py-2">
-              <div className="text-sm font-semibold">
-                {new Date(item.timestamp).toLocaleString()}
-              </div>
-              <div className="text-sm text-gray-600">{item.description}</div>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="mt-8 bg-white shadow rounded-lg p-4">
+      <h2 className="text-xl font-semibold mb-3">Activity Timeline: {userId}</h2>
+      {loading && <div>Loading...</div>}
+      {!loading && logs.length === 0 && <div>No activity found.</div>}
+      <div className="space-y-3 max-h-96 overflow-y-auto">
+        {logs.map((log, idx) => (
+          <div key={idx} className="border-l-4 border-gray-300 pl-3 py-1">
+            <div className="text-sm text-gray-500">{new Date(log.timestamp).toLocaleString()}</div>
+            <div className="font-mono text-sm">
+              {log.event_type} · {log.cloud_provider} · {log.status}
+              {log.source_ip && ` · IP: ${log.source_ip}`}
+              {log.resource && ` · Resource: ${log.resource}`}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
 	);
 }
