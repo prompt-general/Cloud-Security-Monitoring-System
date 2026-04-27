@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SecurityEvent",
+  "type": "object",
+  "required": ["timestamp", "user_id", "source_ip", "event_type", "cloud_provider", "status"],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User identifier (email or principal ID)"
+    },
+    "source_ip": {
+      "type": "string",
+      "format": "ipv4"
+    },
+    "geo_location": {
+      "type": "string",
+      "description": "Country code or city name (optional, may be enriched later)"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": ["login", "api_call", "admin_action"]
+    },
+    "cloud_provider": {
+      "type": "string",
+      "enum": ["aws", "azure", "gcp"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure"]
+    },
+    "resource": {
+      "type": "string",
+      "description": "Resource ARN, URI, or identifier"
+    },
+    "raw_log_ref": {
+      "type": "string",
+      "description": "Original log ID for traceability"
+    }
+  }
+}
