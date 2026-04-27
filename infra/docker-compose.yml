@@ -53,6 +53,30 @@ services:
       - cloudsec-net
     restart: unless-stopped
 
+  normalization-service:
+    build: ../backend/services/normalization-service
+    container_name: cloudsec-normalization
+    depends_on:
+      - kafka
+      - opensearch
+    environment:
+      KAFKA_BROKER: kafka:9092
+      OPENSEARCH_HOST: opensearch
+    networks:
+      - cloudsec-net
+    restart: unless-stopped
+
+  rule-engine-service:
+    build: ../backend/services/rule-engine-service
+    container_name: cloudsec-rule-engine
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKER: kafka:9092
+    networks:
+      - cloudsec-net
+    restart: unless-stopped
+
   # -------------------- PostgreSQL --------------------
   postgres:
     image: postgres:15-alpine
