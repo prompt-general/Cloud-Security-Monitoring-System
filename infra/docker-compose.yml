@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  # -------------------- Kafka + Zookeeper --------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: cloudsec-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - cloudsec-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: cloudsec-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"   # We'll create topics explicitly
+    ports:
+      - "9092:9092"
+    networks:
+      - cloudsec-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: cloudsec-kafka-ui
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8080:8080"
+    networks:
+      - cloudsec-net
+
+  # -------------------- PostgreSQL --------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: cloudsec-postgres
+    environment:
+      POSTGRES_USER: cloudsec
+      POSTGRES_PASSWORD: cloudsec123
+      POSTGRES_DB: cloudsec_metadata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - cloudsec-net
+
+  # -------------------- Redis --------------------
+  redis:
+    image: redis:7-alpine
+    container_name: cloudsec-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - cloudsec-net
+
+  # -------------------- OpenSearch (single node) --------------------
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: cloudsec-opensearch
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"   # Disable security for MVP (simplify)
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9600:9600"   # Performance analyzer
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - cloudsec-net
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.11.0
+    container_name: cloudsec-odashboards
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "5601:5601"
+    depends_on:
+      - opensearch
+    networks:
+      - cloudsec-net
+
+  # -------------------- Kafka topic initializer (runs once) --------------------
+  kafka-topics-init:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: cloudsec-kafka-init
+    depends_on:
+      - kafka
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      echo 'Waiting for Kafka to be ready...'
+      cub kafka-ready -b kafka:9092 1 30
+      echo 'Creating topics...'
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic raw-logs --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic normalized-logs --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic security-alerts --partitions 2 --replication-factor 1
+      echo 'Topics created.'
+      "
+    networks:
+      - cloudsec-net
+
+networks:
+  cloudsec-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  opensearch_data:
