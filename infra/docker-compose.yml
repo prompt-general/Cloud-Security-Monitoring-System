@@ -77,6 +77,36 @@ services:
       - cloudsec-net
     restart: unless-stopped
 
+  api-gateway:
+    build: ../backend/services/api-gateway
+    container_name: cloudsec-api
+    depends_on:
+      - postgres
+      - opensearch
+    environment:
+      DB_HOST: postgres
+      DB_NAME: cloudsec_metadata
+      DB_USER: cloudsec
+      DB_PASSWORD: cloudsec123
+      OPENSEARCH_HOST: opensearch
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret}
+    ports:
+      - "8000:8000"
+    networks:
+      - cloudsec-net
+    restart: unless-stopped
+
+  frontend:
+    build: ../frontend
+    container_name: cloudsec-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - cloudsec-net
+    restart: unless-stopped
+
   # -------------------- PostgreSQL --------------------
   postgres:
     image: postgres:15-alpine
