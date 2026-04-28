@@ -1,0 +1,4 @@
+confluent-kafka==2.2.0
+prometheus_client==0.17.0
+python-json-logger==2.0.4
+redis==4.6.0
